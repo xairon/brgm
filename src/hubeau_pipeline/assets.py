@@ -1,7 +1,7 @@
-"""
-Assets Dagster pour l'intégration complète des données Hub'Eau
+﻿"""
+Assets Dagster pour l'intÃ©gration complÃ¨te des donnÃ©es Hub'Eau
 Pipeline d'ingestion : Hub'Eau APIs -> MinIO -> TimescaleDB -> Neo4j
-Intégration des ontologies RDF et sources externes
+IntÃ©gration des ontologies RDF et sources externes
 """
 
 import io
@@ -27,7 +27,7 @@ from dagster._core.definitions.asset_check_spec import AssetCheckSpec
 from dagster._core.definitions.asset_checks import asset_check
 
 
-# Configuration des partitions journalières
+# Configuration des partitions journaliÃ¨res
 PARTITIONS = DailyPartitionsDefinition(start_date="2020-01-01")
 
 # Freshness policies pour les assets critiques
@@ -89,7 +89,7 @@ def fetch_hubeau(http, base_url: str, params: dict):
     return rows
 
 def fetch_hubeau_data(http_client, endpoints: List[Dict], day: str) -> List[Dict]:
-    """Fonction générique pour récupérer les données Hub'Eau (version optimisée)"""
+    """Fonction gÃ©nÃ©rique pour rÃ©cupÃ©rer les donnÃ©es Hub'Eau (version optimisÃ©e)"""
     log = get_dagster_logger()
     d0 = dt.datetime.fromisoformat(day)
     d1 = d0 + dt.timedelta(days=1)
@@ -100,7 +100,7 @@ def fetch_hubeau_data(http_client, endpoints: List[Dict], day: str) -> List[Dict
         url = endpoint_config["url"]
         source = endpoint_config["source"]
         
-        # Paramètres communs
+        # ParamÃ¨tres communs
         params = {
             "date_debut": d0.strftime("%Y-%m-%d"), 
             "date_fin": d1.strftime("%Y-%m-%d")
@@ -117,7 +117,7 @@ def fetch_hubeau_data(http_client, endpoints: List[Dict], day: str) -> List[Dict
 
 
 def normalize_measure_data(rows: List[Dict], theme: str, source: str) -> List[Dict]:
-    """Normalisation des données de mesure"""
+    """Normalisation des donnÃ©es de mesure"""
     normalized_data = []
     
     for row in rows:
@@ -140,7 +140,7 @@ def normalize_measure_data(rows: List[Dict], theme: str, source: str) -> List[Di
         if not date_measure:
             continue
             
-        # Normalisation des valeurs selon le thème
+        # Normalisation des valeurs selon le thÃ¨me
         if theme == "piezo":
             value = (row.get("niveau_nappe") or 
                     row.get("valeur") or 
@@ -174,21 +174,21 @@ def normalize_measure_data(rows: List[Dict], theme: str, source: str) -> List[Di
 
 # ---------- Assets pour chaque API Hub'Eau ----------
 
-# 1. Piézométrie
+# 1. PiÃ©zomÃ©trie
 @asset(
     partitions_def=PARTITIONS, 
     group_name="hubeau_bronze",
-    description="Ingestion des données piézométriques brutes depuis Hub'Eau vers MinIO",
+    description="Ingestion des donnÃ©es piÃ©zomÃ©triques brutes depuis Hub'Eau vers MinIO",
     freshness_policy=FRESH_DAILY
 )
 def piezo_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données piézométriques depuis Hub'Eau"""
+    """Ingestion des donnÃ©es piÃ©zomÃ©triques depuis Hub'Eau"""
     log = get_dagster_logger()
     day = context.asset_partition_key_for_output()
     
     log.info(f"Starting piezo_raw ingestion for {day}")
     
-    # Configuration des endpoints piézométrie
+    # Configuration des endpoints piÃ©zomÃ©trie
     endpoints = [
         {
             "url": HUBEAU_ENDPOINTS["piezo"]["observations_tr"],
@@ -200,7 +200,7 @@ def piezo_raw(context: AssetExecutionContext, http_client, s3):
         }
     ]
     
-    # Récupération des données
+    # RÃ©cupÃ©ration des donnÃ©es
     all_rows = fetch_hubeau_data(http_client, endpoints, day)
     
     # Normalisation
@@ -234,15 +234,15 @@ def piezo_raw(context: AssetExecutionContext, http_client, s3):
     }
 
 
-# 2. Hydrométrie
+# 2. HydromÃ©trie
 @asset(
     partitions_def=PARTITIONS,
     group_name="hubeau_bronze",
-    description="Ingestion des données hydrométriques brutes depuis Hub'Eau",
+    description="Ingestion des donnÃ©es hydromÃ©triques brutes depuis Hub'Eau",
     freshness_policy=FRESH_DAILY
 )
 def hydro_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données hydrométriques depuis Hub'Eau"""
+    """Ingestion des donnÃ©es hydromÃ©triques depuis Hub'Eau"""
     log = get_dagster_logger()
     day = context.asset_partition_key_for_output()
     
@@ -286,14 +286,14 @@ def hydro_raw(context: AssetExecutionContext, http_client, s3):
     }
 
 
-# 3. Température des cours d'eau
+# 3. TempÃ©rature des cours d'eau
 @asset(
     partitions_def=PARTITIONS,
     group_name="hubeau_bronze",
-    description="Ingestion des données de température des cours d'eau"
+    description="Ingestion des donnÃ©es de tempÃ©rature des cours d'eau"
 )
 def temperature_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données de température depuis Hub'Eau"""
+    """Ingestion des donnÃ©es de tempÃ©rature depuis Hub'Eau"""
     log = get_dagster_logger()
     day = context.asset_partition_key_for_output()
     
@@ -331,14 +331,14 @@ def temperature_raw(context: AssetExecutionContext, http_client, s3):
     }
 
 
-# 4. Écoulement des cours d'eau
+# 4. Ã‰coulement des cours d'eau
 @asset(
     partitions_def=PARTITIONS,
     group_name="hubeau_bronze",
-    description="Ingestion des données d'écoulement des cours d'eau"
+    description="Ingestion des donnÃ©es d'Ã©coulement des cours d'eau"
 )
 def ecoulement_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données d'écoulement depuis Hub'Eau"""
+    """Ingestion des donnÃ©es d'Ã©coulement depuis Hub'Eau"""
     log = get_dagster_logger()
     day = context.asset_partition_key_for_output()
     
@@ -380,10 +380,10 @@ def ecoulement_raw(context: AssetExecutionContext, http_client, s3):
 @asset(
     partitions_def=PARTITIONS,
     group_name="hubeau_bronze",
-    description="Ingestion des données hydrobiologiques"
+    description="Ingestion des donnÃ©es hydrobiologiques"
 )
 def hydrobiologie_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données hydrobiologiques depuis Hub'Eau"""
+    """Ingestion des donnÃ©es hydrobiologiques depuis Hub'Eau"""
     log = get_dagster_logger()
     day = context.asset_partition_key_for_output()
     
@@ -421,44 +421,44 @@ def hydrobiologie_raw(context: AssetExecutionContext, http_client, s3):
     }
 
 
-# 6. Qualité des eaux de surface
+# 6. Qualite des eaux de surface
 @asset(
     partitions_def=PARTITIONS,
     group_name="hubeau_bronze",
-    description="Ingestion des données de qualité des eaux de surface"
+    description="Ingestion des donnees de qualite des eaux de surface"
 )
 def quality_surface_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données de qualité des eaux de surface depuis Hub'Eau"""
+    """Ingestion des donnees de qualite des eaux de surface depuis Hub'Eau"""
     log = get_dagster_logger()
     day = context.asset_partition_key_for_output()
-    
+
     endpoints = [{
         "url": HUBEAU_ENDPOINTS["quality_surface"]["analyse"],
         "source": "hubeau_quality_surface"
     }]
-    
+
     all_rows = fetch_hubeau_data(http_client, endpoints, day)
     normalized_data = normalize_measure_data(all_rows, "quality_surface", "hubeau_quality_surface")
-    
+
     if not normalized_data:
         log.warning(f"No quality_surface data found for {day}")
         return {"count": 0, "key": None}
-    
+
     df = pd.DataFrame(normalized_data).dropna(subset=["station_code", "ts"])
-    
+
     key = f"quality_surface/raw/date={day}/quality_surface_{day}.parquet"
     buf = io.BytesIO()
     df.to_parquet(buf, index=False)
-    
+
     s3["client"].put_object(
-        Bucket=s3["bucket"], 
-        Key=key, 
+        Bucket=s3["bucket"],
+        Key=key,
         Body=buf.getvalue(),
         ContentType="application/octet-stream"
     )
-    
+
     log.info(f"quality_surface_raw: {len(df)} rows saved")
-    
+
     return {
         "count": len(df),
         "key": key,
@@ -466,59 +466,14 @@ def quality_surface_raw(context: AssetExecutionContext, http_client, s3):
     }
 
 
-# 7. Qualité des eaux souterraines
+# 7. Prelevements d'eau
 @asset(
     partitions_def=PARTITIONS,
     group_name="hubeau_bronze",
-    description="Ingestion des données de qualité des eaux souterraines"
-)
-def quality_groundwater_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données de qualité des eaux souterraines depuis Hub'Eau"""
-    log = get_dagster_logger()
-    day = context.asset_partition_key_for_output()
-    
-    endpoints = [{
-        "url": HUBEAU_ENDPOINTS["quality_groundwater"]["analyse"],
-        "source": "hubeau_quality_groundwater"
-    }]
-    
-    all_rows = fetch_hubeau_data(http_client, endpoints, day)
-    normalized_data = normalize_measure_data(all_rows, "quality_groundwater", "hubeau_quality_groundwater")
-    
-    if not normalized_data:
-        log.warning(f"No quality_groundwater data found for {day}")
-        return {"count": 0, "key": None}
-    
-    df = pd.DataFrame(normalized_data).dropna(subset=["station_code", "ts"])
-    
-    key = f"quality_groundwater/raw/date={day}/quality_groundwater_{day}.parquet"
-    buf = io.BytesIO()
-    df.to_parquet(buf, index=False)
-    
-    s3["client"].put_object(
-        Bucket=s3["bucket"], 
-        Key=key, 
-        Body=buf.getvalue(),
-        ContentType="application/octet-stream"
-    )
-    
-    log.info(f"quality_groundwater_raw: {len(df)} rows saved")
-    
-    return {
-        "count": len(df),
-        "key": key,
-        "date": day
-    }
-
-
-# 8. Prélèvements d'eau
-@asset(
-    partitions_def=PARTITIONS,
-    group_name="hubeau_bronze",
-    description="Ingestion des données de prélèvements d'eau"
+    description="Ingestion des donnÃ©es de prÃ©lÃ¨vements d'eau"
 )
 def prelevements_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données de prélèvements depuis Hub'Eau"""
+    """Ingestion des donnÃ©es de prÃ©lÃ¨vements depuis Hub'Eau"""
     log = get_dagster_logger()
     day = context.asset_partition_key_for_output()
     
@@ -561,24 +516,24 @@ def prelevements_raw(context: AssetExecutionContext, http_client, s3):
     partitions_def=PARTITIONS, 
     deps=[piezo_raw], 
     group_name="warehouse_silver",
-    description="Chargement des données piézométriques vers TimescaleDB"
+    description="Chargement des donnÃ©es piÃ©zomÃ©triques vers TimescaleDB"
 )
 def piezo_timescale(context: AssetExecutionContext, pg, s3, piezo_raw):
-    """Chargement des données normalisées vers TimescaleDB"""
+    """Chargement des donnÃ©es normalisÃ©es vers TimescaleDB"""
     log = get_dagster_logger()
     
     if not piezo_raw["key"]:
         log.warning("No data to load to TimescaleDB")
         return {"loaded": 0}
     
-    # Récupération des données depuis MinIO
+    # RÃ©cupÃ©ration des donnÃ©es depuis MinIO
     key = piezo_raw["key"]
     obj = s3["client"].get_object(Bucket=s3["bucket"], Key=key)
     df = pd.read_parquet(io.BytesIO(obj["Body"].read()))
     
     log.info(f"Loading {len(df)} records to TimescaleDB")
     
-    # Upsert idempotent vers TimescaleDB avec COPY optimisé
+    # Upsert idempotent vers TimescaleDB avec COPY optimisÃ©
     with pg.cursor() as cur:
         with cur.copy("COPY measure (station_code, theme, ts, value, quality, source) FROM STDIN WITH (FORMAT CSV)") as cp:
             for r in df.itertuples(index=False):
@@ -591,7 +546,7 @@ def piezo_timescale(context: AssetExecutionContext, pg, s3, piezo_raw):
                     "hubeau_piezo"
                 ])
         
-        # Déduplication par clé primaire (si nécessaire)
+        # DÃ©duplication par clÃ© primaire (si nÃ©cessaire)
         cur.execute("""
             DELETE FROM measure a USING measure b 
             WHERE a.station_code = b.station_code 
@@ -608,18 +563,18 @@ def piezo_timescale(context: AssetExecutionContext, pg, s3, piezo_raw):
     }
 
 
-# ---------- Asset 3 : Métadonnées des stations ----------
+# ---------- Asset 3 : MÃ©tadonnÃ©es des stations ----------
 @asset(
     partitions_def=PARTITIONS,
     deps=[piezo_timescale],
     group_name="warehouse_silver",
-    description="Synchronisation des métadonnées des stations depuis Hub'Eau"
+    description="Synchronisation des mÃ©tadonnÃ©es des stations depuis Hub'Eau"
 )
 def stations_metadata(context: AssetExecutionContext, http_client, pg):
-    """Récupération et synchronisation des métadonnées des stations"""
+    """RÃ©cupÃ©ration et synchronisation des mÃ©tadonnÃ©es des stations"""
     log = get_dagster_logger()
     
-    # Récupération des stations depuis Hub'Eau
+    # RÃ©cupÃ©ration des stations depuis Hub'Eau
     url = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations"
     params = {"size": 10000}
     
@@ -655,7 +610,7 @@ def stations_metadata(context: AssetExecutionContext, http_client, pg):
             if not station_code:
                 continue
                 
-            # Insertion/MAJ des métadonnées
+            # Insertion/MAJ des mÃ©tadonnÃ©es
             cur.execute("""
                 INSERT INTO station_meta (
                     station_code, label, type, insee, masse_eau_code, 
@@ -696,13 +651,13 @@ def stations_metadata(context: AssetExecutionContext, http_client, pg):
 @asset(
     group_name="graph_gold", 
     deps=[stations_metadata],
-    description="Synchronisation du contexte métier vers Neo4j"
+    description="Synchronisation du contexte mÃ©tier vers Neo4j"
 )
 def stations_graph(context: AssetExecutionContext, pg, neo4j):
-    """Synchronisation des métadonnées vers le graphe Neo4j"""
+    """Synchronisation des mÃ©tadonnÃ©es vers le graphe Neo4j"""
     log = get_dagster_logger()
     
-    # Récupération des métadonnées depuis TimescaleDB
+    # RÃ©cupÃ©ration des mÃ©tadonnÃ©es depuis TimescaleDB
     with pg.cursor() as cur:
         cur.execute("""
             SELECT 
@@ -717,7 +672,7 @@ def stations_graph(context: AssetExecutionContext, pg, neo4j):
     
     log.info(f"Syncing {len(rows)} stations to Neo4j")
     
-    # Requête Cypher pour la synchronisation
+    # RequÃªte Cypher pour la synchronisation
     cypher = """
         UNWIND $rows AS r
         MERGE (s:Station {code: r.code})
@@ -742,11 +697,11 @@ def stations_graph(context: AssetExecutionContext, pg, neo4j):
         
         WITH s, r
         WHERE r.reseau IS NOT NULL
-        MERGE (r:Reseau {code: r.reseau})
-        MERGE (s)-[:BELONGS_TO]->(r)
+        MERGE (res:Reseau {code: r.reseau})
+        MERGE (s)-[:BELONGS_TO]->(res)
     """
     
-    # Préparation des données pour Neo4j
+    # PrÃ©paration des donnÃ©es pour Neo4j
     neo4j_rows = [{
         "code": r[0],
         "label": r[1], 
@@ -760,12 +715,12 @@ def stations_graph(context: AssetExecutionContext, pg, neo4j):
         "profondeur_m": float(r[9]) if r[9] else None
     } for r in rows]
     
-    # Exécution de la synchronisation
+    # ExÃ©cution de la synchronisation
     with neo4j.session() as sess:
         result = sess.run(cypher, rows=neo4j_rows)
         summary = result.consume()
     
-    log.info(f"Successfully synced {summary.counters.nodes_created + summary.counters.nodes_set} nodes to Neo4j")
+    log.info(f"Successfully synced {summary.counters.nodes_created} nodes to Neo4j")
     
     return {
         "nodes_synced": len(rows),
@@ -774,17 +729,17 @@ def stations_graph(context: AssetExecutionContext, pg, neo4j):
     }
 
 
-# ---------- Asset 5 : Relations de proximité ----------
+# ---------- Asset 5 : Relations de proximitÃ© ----------
 @asset(
     group_name="graph_gold",
     deps=[stations_graph],
-    description="Calcul des relations de proximité géographique entre stations"
+    description="Calcul des relations de proximitÃ© gÃ©ographique entre stations"
 )
 def proximity_relations(context: AssetExecutionContext, neo4j):
-    """Calcul des relations de proximité entre stations"""
+    """Calcul des relations de proximitÃ© entre stations"""
     log = get_dagster_logger()
     
-    # Calcul des distances et création des relations NEAR
+    # Calcul des distances et crÃ©ation des relations NEAR
     cypher = """
         MATCH (s1:Station), (s2:Station)
         WHERE s1.code < s2.code 
@@ -823,7 +778,7 @@ piezo_daily_job = define_asset_job(
         "stations_graph",
         "proximity_relations"
     ],
-    description="Job quotidien d'intégration des données piézométriques"
+    description="Job quotidien d'intÃ©gration des donnÃ©es piÃ©zomÃ©triques"
 )
 
 schedules = [
@@ -838,11 +793,11 @@ schedules = [
 # ---------- Sensors ----------
 @sensor(job=piezo_daily_job)
 def freshness_sensor(context: SensorEvaluationContext):
-    """Sensor pour détecter les données manquantes"""
+    """Sensor pour dÃ©tecter les donnÃ©es manquantes"""
     yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
     
-    # Vérifier si la partition d'hier existe
-    # Dans un vrai cas, on pourrait vérifier l'état des assets
+    # VÃ©rifier si la partition d'hier existe
+    # Dans un vrai cas, on pourrait vÃ©rifier l'Ã©tat des assets
     
     yield RunRequest(
         partition_key=yesterday,
@@ -856,7 +811,7 @@ def freshness_sensor(context: SensorEvaluationContext):
     spec=AssetCheckSpec(name="data_quality_check")
 )
 def piezo_data_quality_check(piezo_raw):
-    """Vérification de la qualité des données piézométriques"""
+    """VÃ©rification de la qualitÃ© des donnÃ©es piÃ©zomÃ©triques"""
     if piezo_raw["count"] == 0:
         return False, "No data ingested"
     
@@ -897,7 +852,6 @@ from .assets_station_meta import (
 from .assets_quality import (
     quality_raw,
     quality_timescale,
-    quality_groundwater_raw,
     quality_groundwater_timescale
 )
 
@@ -923,7 +877,7 @@ from .assets_meteo import (
 )
 
 
-# ---------- Jobs et Schedules étendus ----------
+# ---------- Jobs et Schedules Ã©tendus ----------
 
 # Job quotidien pour toutes les APIs Hub'Eau
 hubeau_daily_job = define_asset_job(
@@ -936,10 +890,9 @@ hubeau_daily_job = define_asset_job(
         "ecoulement_raw",
         "hydrobiologie_raw",
         "quality_surface_raw",
-        "quality_groundwater_raw",
         "prelevements_raw",
         
-        # Qualité v2 (nouveau)
+        # QualitÃ© v2 (nouveau)
         "quality_raw",
         "quality_groundwater_raw",
         
@@ -955,10 +908,10 @@ hubeau_daily_job = define_asset_job(
         "graph_params",
         "graph_station_has_param"
     ],
-    description="Job quotidien d'intégration de toutes les APIs Hub'Eau + qualité v2"
+    description="Job quotidien d'intÃ©gration de toutes les APIs Hub'Eau + qualitÃ© v2"
 )
 
-# Job hebdomadaire pour les sources externes et analyses avancées
+# Job hebdomadaire pour les sources externes et analyses avancÃ©es
 external_weekly_job = define_asset_job(
     "external_weekly_job",
     selection=[
@@ -970,7 +923,7 @@ external_weekly_job = define_asset_job(
         "carmen_chimie",
         "meteo_france_safran",
         
-        # Thésaurus Sandre (nouveau)
+        # ThÃ©saurus Sandre (nouveau)
         "sandre_params_raw",
         "sandre_params_pg",
         "sandre_units_raw",
@@ -980,7 +933,7 @@ external_weekly_job = define_asset_job(
         "sandre_to_neo4j",
         "bdlisa_to_neo4j",
         
-        # Analyses géospatiales et relations
+        # Analyses gÃ©ospatiales et relations
         "all_stations_proximity",
         "station_correlations",
         "station_river_relations",
@@ -989,18 +942,18 @@ external_weekly_job = define_asset_job(
         "anthropogenic_impact_analysis",
         "data_quality_metadata",
         
-        # Analyses qualité avancées (nouveau)
+        # Analyses qualitÃ© avancÃ©es (nouveau)
         "graph_quality_correlations",
         "graph_quality_profiles"
     ],
-    description="Job hebdomadaire pour les sources externes, thésaurus et analyses avancées"
+    description="Job hebdomadaire pour les sources externes, thÃ©saurus et analyses avancÃ©es"
 )
 
 # Job complet (mensuel)
 full_integration_job = define_asset_job(
     "full_integration_job",
     selection="*",  # Tous les assets
-    description="Job d'intégration complète mensuelle"
+    description="Job d'intÃ©gration complÃ¨te mensuelle"
 )
 
 schedules = [
@@ -1026,10 +979,10 @@ schedules = [
 ]
 
 
-# ---------- Sensors étendus ----------
+# ---------- Sensors Ã©tendus ----------
 @sensor(job=hubeau_daily_job)
 def hubeau_freshness_sensor(context: SensorEvaluationContext):
-    """Sensor pour détecter les données Hub'Eau manquantes"""
+    """Sensor pour dÃ©tecter les donnÃ©es Hub'Eau manquantes"""
     yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
     
     yield RunRequest(
@@ -1040,19 +993,19 @@ def hubeau_freshness_sensor(context: SensorEvaluationContext):
 
 @sensor(job=external_weekly_job)
 def external_data_sensor(context: SensorEvaluationContext):
-    """Sensor pour déclencher l'import des sources externes"""
+    """Sensor pour dÃ©clencher l'import des sources externes"""
     yield RunRequest(
         tags={"trigger": "external_data_sensor"}
     )
 
 
-# ---------- Asset Checks étendus ----------
+# ---------- Asset Checks Ã©tendus ----------
 @asset_check(
     asset=piezo_raw,
     spec=AssetCheckSpec(name="piezo_data_quality_check")
 )
 def piezo_data_quality_check(piezo_raw):
-    """Vérification de la qualité des données piézométriques"""
+    """VÃ©rification de la qualitÃ© des donnÃ©es piÃ©zomÃ©triques"""
     if piezo_raw["count"] == 0:
         return False, "No piezo data ingested"
     
@@ -1067,7 +1020,7 @@ def piezo_data_quality_check(piezo_raw):
     spec=AssetCheckSpec(name="hydro_data_quality_check")
 )
 def hydro_data_quality_check(hydro_raw):
-    """Vérification de la qualité des données hydrométriques"""
+    """VÃ©rification de la qualitÃ© des donnÃ©es hydromÃ©triques"""
     if hydro_raw["count"] == 0:
         return False, "No hydro data ingested"
     
@@ -1079,7 +1032,7 @@ def hydro_data_quality_check(hydro_raw):
     spec=AssetCheckSpec(name="station_meta_quality_check")
 )
 def station_meta_quality_check(station_meta_sync):
-    """Vérification de la qualité des métadonnées des stations"""
+    """VÃ©rification de la qualitÃ© des mÃ©tadonnÃ©es des stations"""
     if station_meta_sync["upserted"] == 0:
         return False, "No station metadata synced"
     
@@ -1094,7 +1047,7 @@ def station_meta_quality_check(station_meta_sync):
     spec=AssetCheckSpec(name="piezo_timescale_check")
 )
 def piezo_timescale_check(piezo_timescale):
-    """Vérification du chargement TimescaleDB"""
+    """VÃ©rification du chargement TimescaleDB"""
     if piezo_timescale["loaded"] == 0:
         return False, "No data loaded to TimescaleDB"
     
@@ -1110,10 +1063,9 @@ assets = [
     ecoulement_raw,
     hydrobiologie_raw,
     quality_surface_raw,
-    quality_groundwater_raw,
     prelevements_raw,
     
-    # Qualité v2 (nouveau)
+    # QualitÃ© v2 (nouveau)
     quality_raw,
     quality_groundwater_raw,
     
@@ -1137,13 +1089,13 @@ assets = [
     sandre_to_neo4j,
     bdlisa_to_neo4j,
     
-    # Thésaurus Sandre (nouveau)
+    # ThÃ©saurus Sandre (nouveau)
     sandre_params_raw,
     sandre_params_pg,
     sandre_units_raw,
     sandre_units_pg,
     
-    # Analyses géospatiales
+    # Analyses gÃ©ospatiales
     all_stations_proximity,
     station_correlations,
     station_river_relations,
@@ -1152,19 +1104,19 @@ assets = [
     anthropogenic_impact_analysis,
     data_quality_metadata,
     
-    # Analyses qualité avancées (nouveau)
+    # Analyses qualitÃ© avancÃ©es (nouveau)
     graph_params,
     graph_station_has_param,
     graph_quality_correlations,
     graph_quality_profiles,
     
-    # Météo (nouveau)
+    # MÃ©tÃ©o (nouveau)
     meteo_raw,
     meteo_timescale,
     station2grid_update,
     meteo_station_summary,
     
-    # Métadonnées des stations (CRITIQUE)
+    # MÃ©tadonnÃ©es des stations (CRITIQUE)
     station_meta_sync
 ]
 
@@ -1179,3 +1131,11 @@ checks = [
     station_meta_quality_check,
     piezo_timescale_check
 ]
+
+
+
+
+
+
+
+

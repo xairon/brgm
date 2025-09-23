@@ -1,6 +1,6 @@
-"""
-Asset Dagster pour la synchronisation des métadonnées des stations
-Loader optimisé pour Hub'Eau vers TimescaleDB/PostGIS
+﻿"""
+Asset Dagster pour la synchronisation des mÃ©tadonnÃ©es des stations
+Loader optimisÃ© pour Hub'Eau vers TimescaleDB/PostGIS
 """
 
 import io
@@ -36,9 +36,9 @@ def _upsert_station_meta(pg, rows: list[dict]):
         return 0
     
     with pg.cursor() as cur:
-        # Création table temporaire
+        # CrÃ©ation table temporaire
         cur.execute("""
-        CREATE TEMP TABLE stg_station_meta(
+        CREATE TEMP TABLE IF NOT EXISTS stg_station_meta(
             station_code    TEXT,
             label           TEXT,
             type            TEXT,
@@ -48,10 +48,11 @@ def _upsert_station_meta(pg, rows: list[dict]):
             lat             DOUBLE PRECISION,
             x2154           DOUBLE PRECISION,
             y2154           DOUBLE PRECISION
-        ) ON COMMIT DROP;
+        );
         """)
+        cur.execute("TRUNCATE TABLE stg_station_meta;")
         
-        # COPY en CSV optimisé
+        # COPY en CSV optimisÃ©
         with cur.copy("COPY stg_station_meta (station_code,label,type,insee,masse_eau_code,lon,lat,x2154,y2154) FROM STDIN WITH (FORMAT CSV)") as cp:
             for r in rows:
                 cp.write_row([
@@ -66,7 +67,7 @@ def _upsert_station_meta(pg, rows: list[dict]):
                     r.get("y2154"),
                 ])
         
-        # Merge -> station_meta (idempotent) avec transformation géographique
+        # Merge -> station_meta (idempotent) avec transformation gÃ©ographique
         cur.execute("""
         INSERT INTO station_meta (station_code, label, type, insee, masse_eau_code, geom)
         SELECT 
@@ -91,23 +92,24 @@ def _upsert_station_meta(pg, rows: list[dict]):
                masse_eau_code = EXCLUDED.masse_eau_code,
                geom  = COALESCE(EXCLUDED.geom, station_meta.geom);
         """)
-    
+        cur.execute("DROP TABLE IF EXISTS stg_station_meta")
+
     return len(rows)
 
 def _first_bdlisa(codes):
-    """Extrait le premier code BDLISA d'une chaîne séparée par virgules."""
+    """Extrait le premier code BDLISA d'une chaÃ®ne sÃ©parÃ©e par virgules."""
     if not codes:
         return None
-    # codes_bdlisa peut être "A1,B2,..." -> on prend le premier
+    # codes_bdlisa peut Ãªtre "A1,B2,..." -> on prend le premier
     return str(codes).split(",")[0].strip() or None
 
 @asset(group_name="meta")
 def station_meta_sync(context: AssetExecutionContext, http_client, pg):
-    """Récupère & unifie les métadonnées stations (Hub'Eau) -> station_meta (PG/PostGIS)."""
+    """RÃ©cupÃ¨re & unifie les mÃ©tadonnÃ©es stations (Hub'Eau) -> station_meta (PG/PostGIS)."""
     log = get_dagster_logger()
     total = 0
     
-    # 1) Piézométrie (niveaux nappes) — stations
+    # 1) PiÃ©zomÃ©trie (niveaux nappes) â€” stations
     piezo_rows = _fetch_all(
         http_client,
         "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations",
@@ -120,7 +122,7 @@ def station_meta_sync(context: AssetExecutionContext, http_client, pg):
         if not code:
             continue
         
-        # Coordonnées: soit lon/lat via geometry.coordinates, soit X/Y Lambert-93 (x,y)
+        # CoordonnÃ©es: soit lon/lat via geometry.coordinates, soit X/Y Lambert-93 (x,y)
         lon = r.get("geometry", {}).get("coordinates", [None, None])[0] if isinstance(r.get("geometry",{}).get("coordinates"), (list,tuple)) else None
         lat = r.get("geometry", {}).get("coordinates", [None, None])[1] if isinstance(r.get("geometry",{}).get("coordinates"), (list,tuple)) else None
         x   = r.get("x")
@@ -139,9 +141,9 @@ def station_meta_sync(context: AssetExecutionContext, http_client, pg):
         })
     
     total += _upsert_station_meta(pg, piezo)
-    log.info(f"Piézo: {len(piezo)} stations upsert.")
+    log.info(f"PiÃ©zo: {len(piezo)} stations upsert.")
     
-    # 2) Hydrométrie — stations
+    # 2) HydromÃ©trie â€” stations
     hydro_rows = _fetch_all(
         http_client,
         "https://hubeau.eaufrance.fr/api/v1/hydrometrie/stations",
@@ -174,7 +176,7 @@ def station_meta_sync(context: AssetExecutionContext, http_client, pg):
     total += _upsert_station_meta(pg, hydro)
     log.info(f"Hydro: {len(hydro)} stations upsert.")
     
-    # 3) Température — stations
+    # 3) TempÃ©rature â€” stations
     temp_rows = _fetch_all(
         http_client,
         "https://hubeau.eaufrance.fr/api/v1/temperature/stations",
@@ -205,9 +207,9 @@ def station_meta_sync(context: AssetExecutionContext, http_client, pg):
         })
     
     total += _upsert_station_meta(pg, temp)
-    log.info(f"Température: {len(temp)} stations upsert.")
+    log.info(f"TempÃ©rature: {len(temp)} stations upsert.")
     
-    # 4) Qualité eaux de surface v2 — stations
+    # 4) QualitÃ© eaux de surface v2 â€” stations
     quality_rows = _fetch_all(
         http_client,
         "https://hubeau.eaufrance.fr/api/v1/qualite_eau_surface/stations",
@@ -238,7 +240,7 @@ def station_meta_sync(context: AssetExecutionContext, http_client, pg):
         })
     
     total += _upsert_station_meta(pg, quality)
-    log.info(f"Qualité: {len(quality)} stations upsert.")
+    log.info(f"QualitÃ©: {len(quality)} stations upsert.")
     
     return {"upserted": total}
 
@@ -249,3 +251,9 @@ station_meta_schedule = ScheduleDefinition(
     cron_schedule="10 3 * * 1", 
     execution_timezone="Europe/Paris"
 )
+
+
+
+
+
+

@@ -1,6 +1,6 @@
-"""
-Assets Dagster pour la qualité v2 (Hub'Eau)
-Modèle spécialisé avec thésaurus Sandre
+﻿"""
+Assets Dagster pour la qualitÃ© v2 (Hub'Eau)
+ModÃ¨le spÃ©cialisÃ© avec thÃ©saurus Sandre
 """
 
 import io
@@ -17,7 +17,7 @@ PART_DAY = DailyPartitionsDefinition(start_date="2015-01-01")
 FRESH_DAILY = FreshnessPolicy(maximum_lag_minutes=24*60)
 
 def _fetch_all(http, base_url: str, params: dict):
-    """Pagination standard Hub'Eau optimisée"""
+    """Pagination standard Hub'Eau optimisÃ©e"""
     rows, page = [], 1
     while True:
         r = http.get(base_url, params={**params, "page": page, "size": 10000})
@@ -35,11 +35,11 @@ def _fetch_all(http, base_url: str, params: dict):
 @asset(
     partitions_def=PART_DAY, 
     group_name="hubeau_bronze",
-    description="Ingestion des données de qualité eaux de surface v2",
+    description="Ingestion des donnÃ©es de qualitÃ© eaux de surface v2",
     freshness_policy=FRESH_DAILY
 )
 def quality_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données de qualité depuis Hub'Eau v2"""
+    """Ingestion des donnÃ©es de qualitÃ© depuis Hub'Eau v2"""
     day = context.partition_key
     d0 = dt.datetime.fromisoformat(day)
     d1 = d0 + dt.timedelta(days=1)
@@ -75,44 +75,62 @@ def quality_raw(context: AssetExecutionContext, http_client, s3):
     partitions_def=PART_DAY, 
     deps=[quality_raw], 
     group_name="warehouse_silver",
-    description="Chargement des données qualité vers TimescaleDB"
+    description="Chargement des donnÃ©es qualitÃ© vers TimescaleDB"
 )
 def quality_timescale(context: AssetExecutionContext, pg, s3, quality_raw):
-    """Chargement des données qualité vers TimescaleDB (table spécialisée)"""
+    """Chargement des donnees qualite vers TimescaleDB (table specialisee)"""
     key = quality_raw["key"]
     obj = s3["client"].get_object(Bucket=s3["bucket"], Key=key)
     df = pd.read_parquet(io.BytesIO(obj["Body"].read()))
-    
+
     if df.empty:
         return {"loaded": 0}
-    
+
+    df["ts"] = pd.to_datetime(df["ts"], utc=True, errors="coerce")
+    df = df.dropna(subset=["station_code", "param_code", "ts"]).copy()
+
+    if df.empty:
+        return {"loaded": 0}
+
+    partition_day = context.partition_key
+    if partition_day:
+        start_ts = pd.Timestamp(partition_day).tz_localize("UTC")
+    else:
+        start_ts = pd.to_datetime(df["ts"].min())
+    end_ts = start_ts + pd.Timedelta(days=1)
+
     with pg.cursor() as cur:
+        cur.execute(
+            "DELETE FROM measure_quality WHERE ts >= %s AND ts < %s AND source = %s",
+            (start_ts.to_pydatetime(), end_ts.to_pydatetime(), "hubeau_quality_v2"),
+        )
+
         with cur.copy("""
             COPY measure_quality (station_code,param_code,ts,value,unit,quality,source)
             FROM STDIN WITH (FORMAT CSV)
         """) as cp:
             for r in df.itertuples(index=False):
                 cp.write_row([
-                    r.station_code, 
+                    r.station_code,
                     r.param_code,
-                    pd.to_datetime(r.ts).strftime("%Y-%m-%d %H:%M:%S%z"),
+                    pd.to_datetime(r.ts).isoformat(),
                     None if pd.isna(r.value) else r.value,
-                    None if pd.isna(r.unit)  else r.unit,
+                    None if pd.isna(r.unit) else r.unit,
                     None if pd.isna(r.quality) else r.quality,
-                    "hubeau_quality_v2"
+                    "hubeau_quality_v2",
                 ])
-    
+
     context.log.info(f"quality_timescale: {len(df)} records loaded to TimescaleDB")
-    
+
     return {"loaded": len(df)}
 
 @asset(
     partitions_def=PART_DAY,
     group_name="hubeau_bronze",
-    description="Ingestion des données de qualité eaux souterraines v2"
+    description="Ingestion des donnÃ©es de qualitÃ© eaux souterraines v2"
 )
 def quality_groundwater_raw(context: AssetExecutionContext, http_client, s3):
-    """Ingestion des données de qualité eaux souterraines depuis Hub'Eau"""
+    """Ingestion des donnÃ©es de qualitÃ© eaux souterraines depuis Hub'Eau"""
     day = context.partition_key
     d0 = dt.datetime.fromisoformat(day)
     d1 = d0 + dt.timedelta(days=1)
@@ -150,30 +168,51 @@ def quality_groundwater_raw(context: AssetExecutionContext, http_client, s3):
     group_name="warehouse_silver"
 )
 def quality_groundwater_timescale(context: AssetExecutionContext, pg, s3, quality_groundwater_raw):
-    """Chargement des données qualité eaux souterraines vers TimescaleDB"""
+    """Chargement des donnees qualite eaux souterraines vers TimescaleDB"""
     key = quality_groundwater_raw["key"]
     obj = s3["client"].get_object(Bucket=s3["bucket"], Key=key)
     df = pd.read_parquet(io.BytesIO(obj["Body"].read()))
-    
+
     if df.empty:
         return {"loaded": 0}
-    
+
+    df["ts"] = pd.to_datetime(df["ts"], utc=True, errors="coerce")
+    df = df.dropna(subset=["station_code", "param_code", "ts"]).copy()
+
+    if df.empty:
+        return {"loaded": 0}
+
+    partition_day = context.partition_key
+    if partition_day:
+        start_ts = pd.Timestamp(partition_day).tz_localize("UTC")
+    else:
+        start_ts = pd.to_datetime(df["ts"].min())
+    end_ts = start_ts + pd.Timedelta(days=1)
+
     with pg.cursor() as cur:
+        cur.execute(
+            "DELETE FROM measure_quality WHERE ts >= %s AND ts < %s AND source = %s",
+            (start_ts.to_pydatetime(), end_ts.to_pydatetime(), "hubeau_quality_groundwater_v2"),
+        )
+
         with cur.copy("""
             COPY measure_quality (station_code,param_code,ts,value,unit,quality,source)
             FROM STDIN WITH (FORMAT CSV)
         """) as cp:
             for r in df.itertuples(index=False):
                 cp.write_row([
-                    r.station_code, 
+                    r.station_code,
                     r.param_code,
-                    pd.to_datetime(r.ts).strftime("%Y-%m-%d %H:%M:%S%z"),
+                    pd.to_datetime(r.ts).isoformat(),
                     None if pd.isna(r.value) else r.value,
-                    None if pd.isna(r.unit)  else r.unit,
+                    None if pd.isna(r.unit) else r.unit,
                     None if pd.isna(r.quality) else r.quality,
-                    "hubeau_quality_groundwater_v2"
+                    "hubeau_quality_groundwater_v2",
                 ])
-    
+
     context.log.info(f"quality_groundwater_timescale: {len(df)} records loaded")
-    
+
     return {"loaded": len(df)}
+
+
+

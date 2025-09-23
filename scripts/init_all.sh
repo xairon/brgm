@@ -1,127 +1,101 @@
-#!/bin/bash
+﻿#!/bin/bash
 
-# Script d'initialisation complète du projet Hub'Eau
-# Ce script configure tous les services et initialise les bases de données
+# Hub'Eau pipeline bootstrap script
+set -euo pipefail
 
-set -e
+info() { echo "[info] $1"; }
+warn() { echo "[warn] $1"; }
 
-echo "🚀 Initialisation du projet Hub'Eau Data Integration Pipeline"
+info "Initialisation du pipeline Hub'Eau"
 
-# Vérification des prérequis
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker n'est pas installé"
-    exit 1
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker est requis" >&2
+  exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null; then
-    echo "❌ Docker Compose n'est pas installé"
-    exit 1
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE=(docker-compose)
+else
+  echo "Docker Compose est requis" >&2
+  exit 1
 fi
 
-# Vérification du fichier .env
 if [ ! -f .env ]; then
-    echo "⚠️  Fichier .env manquant, copie depuis env.example"
-    cp env.example .env
-    echo "📝 Veuillez éditer le fichier .env avec vos mots de passe"
-    echo "   nano .env"
-    echo ""
-    read -p "Appuyez sur Entrée une fois le fichier .env configuré..."
+  warn "Fichier .env manquant, copie depuis env.example"
+  cp env.example .env
+  warn "Veuillez mettre a jour .env avant de relancer le script"
+  exit 1
 fi
 
-# Chargement des variables d'environnement
+set -a
 source .env
+set +a
 
-echo "📦 Démarrage des services Docker..."
-docker-compose up -d
+info "Construction des images Docker"
+"${COMPOSE[@]}" build dagster_webserver dagster_daemon
 
-echo "⏳ Attente du démarrage des services..."
-sleep 30
+info "Demarrage des services"
+"${COMPOSE[@]}" up -d --remove-orphans
 
-# Vérification de la santé des services
-echo "🔍 Vérification de la santé des services..."
+info "Attente du demarrage des bases"
+"${COMPOSE[@]}" ps
 
-# TimescaleDB
-echo "   - TimescaleDB..."
-until docker-compose exec timescaledb pg_isready -U postgres -d water; do
-    echo "     Attente de TimescaleDB..."
-    sleep 5
+info "  - TimescaleDB"
+until "${COMPOSE[@]}" exec timescaledb pg_isready -U postgres -d water >/dev/null 2>&1; do
+  sleep 5
+  warn "TimescaleDB en cours de demarrage..."
 done
 
-# Neo4j
-echo "   - Neo4j..."
-until docker-compose exec neo4j cypher-shell -u neo4j -p $NEO4J_PASSWORD "RETURN 1"; do
-    echo "     Attente de Neo4j..."
-    sleep 5
+info "  - Neo4j"
+until "${COMPOSE[@]}" exec neo4j cypher-shell -u neo4j -p "$NEO4J_PASSWORD" "RETURN 1" >/dev/null 2>&1; do
+  sleep 5
+  warn "Neo4j en cours de demarrage..."
 done
 
-# Redis
-echo "   - Redis..."
-until docker-compose exec redis redis-cli ping; do
-    echo "     Attente de Redis..."
-    sleep 5
+info "  - Redis"
+until "${COMPOSE[@]}" exec redis redis-cli ping >/dev/null 2>&1; do
+  sleep 5
+  warn "Redis en cours de demarrage..."
 done
 
-echo "✅ Tous les services sont opérationnels"
+info "Initialisation des schemas TimescaleDB"
+"${COMPOSE[@]}" exec timescaledb psql -U postgres -d water -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+"${COMPOSE[@]}" exec timescaledb psql -U postgres -d water -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+"${COMPOSE[@]}" cp scripts/init_timescaledb.sql timescaledb:/tmp/init_timescaledb.sql
+"${COMPOSE[@]}" exec timescaledb psql -U postgres -d water -f /tmp/init_timescaledb.sql
 
-# Initialisation des bases de données
-echo "🗄️  Initialisation des bases de données..."
+info "Initialisation des contraintes Neo4j"
+"${COMPOSE[@]}" cp scripts/init_neo4j.cypher neo4j:/tmp/init_neo4j.cypher
+"${COMPOSE[@]}" exec neo4j cypher-shell -u neo4j -p "$NEO4J_PASSWORD" -f /tmp/init_neo4j.cypher
 
-# TimescaleDB
-echo "   - Configuration de TimescaleDB..."
-docker-compose exec timescaledb psql -U postgres -d water -c "
-CREATE EXTENSION IF NOT EXISTS timescaledb;
-CREATE EXTENSION IF NOT EXISTS postgis;
-"
+info "Configuration des buckets MinIO"
+"${COMPOSE[@]}" exec dagster_webserver python /opt/dagster/scripts/bootstrap_minio.py
 
-# Copie et exécution du script d'initialisation TimescaleDB
-echo "   - Exécution du schéma TimescaleDB..."
-docker cp scripts/init_timescaledb.sql $(docker-compose ps -q timescaledb):/tmp/init_timescaledb.sql
-docker-compose exec timescaledb psql -U postgres -d water -f /tmp/init_timescaledb.sql
-
-# Neo4j
-echo "   - Configuration de Neo4j..."
-docker cp scripts/init_neo4j.cypher $(docker-compose ps -q neo4j):/tmp/init_neo4j.cypher
-docker-compose exec neo4j cypher-shell -u neo4j -p $NEO4J_PASSWORD -f /tmp/init_neo4j.cypher
-
-# Création du bucket MinIO
-echo "   - Configuration de MinIO..."
-docker-compose exec minio sh -c "
-mc alias set local http://localhost:9000 $MINIO_USER $MINIO_PASS
-mc mb local/bronze --ignore-existing
-mc mb local/silver --ignore-existing
-mc mb local/gold --ignore-existing
-"
-
-# Installation des dépendances Python pour Dagster
-echo "🐍 Installation des dépendances Python..."
-docker-compose exec dagster_webserver pip install -r /opt/dagster/app/requirements.txt
-
-# Test de connexion Dagster
-echo "🧪 Test de connexion Dagster..."
-sleep 10
-until curl -f http://localhost:3000/api/graphql -H "Content-Type: application/json" -d '{"query":"query { __typename }"}'; do
-    echo "     Attente de Dagster..."
-    sleep 5
+info "Verification de Dagster"
+for _ in {1..12}; do
+  if curl -fs http://localhost:3000/api/graphql -H 'Content-Type: application/json' -d '{"query":"query { __typename }"}' >/dev/null; then
+    info "Dagster est disponible sur http://localhost:3000"
+    break
+  fi
+  sleep 5
+  warn "Dagster pas encore disponible..."
 done
 
-echo ""
-echo "🎉 Initialisation terminée avec succès !"
-echo ""
-echo "📊 Accès aux interfaces :"
-echo "   - Dagster UI    : http://localhost:3000"
-echo "   - Neo4j Browser : http://localhost:7474 (neo4j/$NEO4J_PASSWORD)"
-echo "   - Grafana       : http://localhost:3001 (admin/admin)"
-echo "   - MinIO Console : http://localhost:9001 ($MINIO_USER/$MINIO_PASS)"
-echo ""
-echo "🚀 Pour lancer le premier job :"
-echo "   1. Ouvrir http://localhost:3000"
-echo "   2. Aller dans 'Assets'"
-echo "   3. Sélectionner 'piezo_daily_job'"
-echo "   4. Cliquer sur 'Materialize'"
-echo ""
-echo "📚 Documentation : voir README.md"
-echo ""
-echo "🔧 Commandes utiles :"
-echo "   - Voir les logs : docker-compose logs -f [service]"
-echo "   - Redémarrer : docker-compose restart [service]"
-echo "   - Arrêter tout : docker-compose down"
+cat <<EOT
+
+[done] Initialisation terminee.
+
+Interfaces :
+  - Dagster UI    : http://localhost:3000
+  - Neo4j Browser : http://localhost:7474 (neo4j/$NEO4J_PASSWORD)
+  - Grafana       : http://localhost:3001
+  - MinIO Console : http://localhost:9001 ($MINIO_USER/$MINIO_PASS)
+
+Commandes utiles :
+  ${COMPOSE[*]} logs -f dagster_webserver
+  ${COMPOSE[*]} ps
+  ${COMPOSE[*]} down
+
+EOT
