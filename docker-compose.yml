@@ -1,0 +1,104 @@
+version: "3.8"
+
+services:
+  dagster_postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${DAGSTER_PG_PASSWORD}
+      POSTGRES_DB: dagster
+    volumes: 
+      - dagster_pg:/var/lib/postgresql/data
+    healthcheck: 
+      test: ["CMD-SHELL","pg_isready -U postgres -d dagster"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  dagster_webserver:
+    image: dagster/dagster:1.8.7
+    depends_on: 
+      - dagster_postgres
+    environment:
+      DAGSTER_HOME: /opt/dagster/dagster_home
+      DAGSTER_PG_HOST: dagster_postgres
+      DAGSTER_PG_DB: dagster
+      DAGSTER_PG_USER: postgres
+      DAGSTER_PG_PASSWORD: ${DAGSTER_PG_PASSWORD}
+    volumes:
+      - ./dagster_home:/opt/dagster/dagster_home
+      - ./src:/opt/dagster/app
+    command: ["dagster-webserver","-h","0.0.0.0","-p","3000","-w","/opt/dagster/dagster_home/workspace.yaml"]
+    ports: 
+      - "3000:3000"
+
+  dagster_daemon:
+    image: dagster/dagster:1.8.7
+    depends_on: 
+      - dagster_postgres
+      - dagster_webserver
+    environment:
+      DAGSTER_HOME: /opt/dagster/dagster_home
+      DAGSTER_PG_HOST: dagster_postgres
+      DAGSTER_PG_DB: dagster
+      DAGSTER_PG_USER: postgres
+      DAGSTER_PG_PASSWORD: ${DAGSTER_PG_PASSWORD}
+    volumes:
+      - ./dagster_home:/opt/dagster/dagster_home
+      - ./src:/opt/dagster/app
+    command: ["dagster-daemon","run"]
+
+  timescaledb:
+    image: timescale/timescaledb-ha:pg16
+    environment:
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: water
+    ports: 
+      - "5432:5432"
+    volumes: 
+      - ts_pg:/var/lib/postgresql/data
+
+  neo4j:
+    image: neo4j:5.15-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+      NEO4J_server_config_strict__validation_enabled: "false"
+      NEO4JLABS_PLUGINS: '["apoc","n10s"]'
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+    ports: 
+      - "7474:7474"
+      - "7687:7687"
+    volumes: 
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+
+  redis:
+    image: redis:7-alpine
+    ports: 
+      - "6379:6379"
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASS}
+    ports: 
+      - "9000:9000"
+      - "9001:9001"
+    volumes: 
+      - minio_data:/data
+
+  grafana:
+    image: grafana/grafana
+    ports: 
+      - "3001:3000"
+    volumes: 
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  dagster_pg: {}
+  ts_pg: {}
+  neo4j_data: {}
+  neo4j_logs: {}
+  minio_data: {}
+  grafana_data: {}
