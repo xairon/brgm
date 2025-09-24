@@ -1,33 +1,52 @@
 ﻿# Hub'Eau Data Integration Pipeline
 
-Pipeline d'intÃ©gration des donnÃ©es Hub'Eau vers une architecture de donnÃ©es moderne avec Dagster, Neo4j et TimescaleDB.
+Pipeline d'intégration des données Hub'Eau vers une architecture de données moderne avec Dagster, Neo4j et TimescaleDB.
 
-## ðŸŽ¯ Vue d'ensemble
+## 🎯 Vue d'ensemble
 
-Ce projet intÃ¨gre les donnÃ©es des APIs Hub'Eau (piÃ©zomÃ©trie, hydromÃ©trie, qualitÃ©, etc.) dans une architecture hybride :
+Ce projet intègre les données des APIs Hub'Eau (piézométrie, hydrométrie, qualité, etc.) dans une architecture hybride moderne :
 
-- **Dagster** : Orchestration des pipelines de donnÃ©es
-- **TimescaleDB + PostGIS** : Stockage des chroniques temporelles et donnÃ©es gÃ©ospatiales
-- **Neo4j** : Graphe sÃ©mantique pour les relations mÃ©tier et ontologies
-- **MinIO** : Data lake pour les donnÃ©es brutes (bronze layer)
-- **Redis** : Cache et verrous distribuÃ©s
+- **Dagster** : Orchestration des pipelines de données avec microservices
+- **TimescaleDB + PostGIS** : Stockage des chroniques temporelles et données géospatiales
+- **Neo4j** : Graphe sémantique pour les relations métier et ontologies
+- **MinIO** : Data lake pour les données brutes (bronze layer)
+- **Redis** : Cache et verrous distribués
+- **pgAdmin** : Interface web pour PostgreSQL/TimescaleDB
 
-## ðŸ—ï¸ Architecture
+## 🏗️ Architecture Microservices
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚   Hub'Eau   â”‚â”€â”€â”€â–¶â”‚   MinIO     â”‚â”€â”€â”€â–¶â”‚ TimescaleDB â”‚
-â”‚    APIs     â”‚    â”‚  (Bronze)   â”‚    â”‚   (Silver)  â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                                              â”‚
-                                              â–¼
-                                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-                                    â”‚   Neo4j     â”‚
-                                    â”‚  (Gold)     â”‚
-                                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Hub'Eau   │───▶│   MinIO     │───▶│ TimescaleDB │
+│    APIs     │    │  (Bronze)   │    │   (Silver)  │
+└─────────────┘    └─────────────┘    └─────────────┘
+                                              │
+                                              ▼
+                                    ┌─────────────┐
+                                    │   Neo4j     │
+                                    │  (Gold)     │
+                                    └─────────────┘
 ```
 
-## ðŸš€ DÃ©marrage rapide
+### Microservices Dagster
+
+#### 🏗️ Services d'Ingestion (Bronze Layer)
+- **hubeau_ingestion_service** : APIs Hub'Eau (piézo, hydro, qualité)
+- **sandre_ingestion_service** : Référentiels Sandre (paramètres, unités)
+- **bdlisa_ingestion_service** : Masses d'eau souterraine BDLISA
+
+#### 🔄 Services de Transformation (Silver Layer)
+- **timescale_loading_service** : Chargement vers TimescaleDB
+- **data_quality_service** : Contrôles qualité et métriques
+
+#### 📊 Services d'Analyse (Gold Layer)
+- **neo4j_graph_service** : Construction du graphe de relations
+- **analytics_service** : Analyses avancées et corrélations
+
+#### 🎯 Orchestrateur
+- **daily_orchestrator** : Coordination du pipeline quotidien
+
+## 🚀 Démarrage rapide
 
 ### 1. Configuration de l'environnement
 
@@ -35,248 +54,223 @@ Ce projet intÃ¨gre les donnÃ©es des APIs Hub'Eau (piÃ©zomÃ©trie, hydrom�
 # Copier le fichier d'environnement
 cp env.example .env
 
-# Ã‰diter les mots de passe
+# Éditer les mots de passe
 nano .env
 ```
 
-### 2. Demarrage des services
+### 2. Démarrage des services
 
 ```bash
 # Construire et lancer les conteneurs
-docker compose up -d --build
+docker-compose up -d --build
 
-# Verifier le statut
-docker compose ps
+# Vérifier le statut
+docker-compose ps
 ```
 
-### 3. Initialisation automatique
+### 3. Initialisation des bases de données
 
 ```bash
-# Linux / macOS
-./scripts/init_all.sh
+# Initialiser TimescaleDB
+docker-compose exec timescaledb psql -U postgres -d water -f /tmp/init_timescaledb.sql
 
-# Windows
-scripts\init_all.bat
+# Initialiser Neo4j
+docker-compose exec neo4j cypher-shell -u neo4j -p BrgmNeo4j2024! -f /tmp/init_neo4j.cypher
 ```
 
-### 4. Lancement du premier job
+### 4. Lancement du pipeline
 
 ```bash
-# Ouvrir Dagster UI puis materialiser le job de votre choix
-# Exemple : piezo_daily_job depuis l'onglet Assets
+# Ouvrir Dagster UI et lancer le job daily_pipeline_job
+# http://localhost:3000
 ```
 
-### 5. Acces aux interfaces
+### 5. Accès aux interfaces
 
 - **Dagster UI** : http://localhost:3000
-- **Neo4j Browser** : http://localhost:7474
+- **Neo4j Browser** : http://localhost:7474 (neo4j / BrgmNeo4j2024!)
+- **pgAdmin** : http://localhost:8080 (admin@brgm.fr / BrgmPgAdmin2024!)
+- **MinIO Console** : http://localhost:9001 (admin / BrgmMinio2024!)
 - **Grafana** : http://localhost:3001
-- **MinIO Console** : http://localhost:9001
 
-## ðŸ“Š Sources de donnÃ©es intÃ©grÃ©es
+## 📊 Sources de données intégrées
 
-### Hub'Eau APIs (IntÃ©grÃ©es)
+### Hub'Eau APIs (Intégrées avec données réelles)
 
-| API | Description | FrÃ©quence | DonnÃ©es | Status |
-|-----|-------------|-----------|---------|--------|
-| **PiÃ©zomÃ©trie** | Niveaux d'eau souterraine | Quotidien | Stations, mesures, mÃ©tadonnÃ©es | âœ… |
-| **HydromÃ©trie** | Hauteurs/dÃ©bits cours d'eau | 15min | Stations hydromÃ©triques | âœ… |
-| **TempÃ©rature** | TempÃ©rature cours d'eau | 15min | Stations thermomÃ©triques | âœ… |
-| **Ã‰coulement** | Ã‰tat d'Ã©coulement cours d'eau | Quotidien | Assecs, intermittence | âœ… |
-| **Hydrobiologie** | Indices biologiques | Annuel | IBGN, IBD, I2M2 | âœ… |
-| **QualitÃ© eaux surface v1** | Analyses physico-chimiques | Mensuel | ParamÃ¨tres, concentrations | âœ… |
-| **QualitÃ© eaux surface v2** | Analyses physico-chimiques (nouveau) | Mensuel | ParamÃ¨tres Sandre, unitÃ©s | âœ… |
-| **QualitÃ© eaux souterraines v1** | Analyses chimiques nappes | Semestriel | Nitrates, pesticides, DCE | âœ… |
-| **QualitÃ© eaux souterraines v2** | Analyses chimiques nappes (nouveau) | Semestriel | ParamÃ¨tres Sandre, unitÃ©s | âœ… |
-| **PrÃ©lÃ¨vements** | Volumes prÃ©levÃ©s | Annuel | DÃ©clarations usagers | âœ… |
+| API | Description | Données disponibles | Status |
+|-----|-------------|-------------------|--------|
+| **Piézométrie** | Niveaux d'eau souterraine | 23,194 stations, 4.8M mesures | ✅ |
+| **Hydrométrie** | Hauteurs/débits cours d'eau | Stations hydrométriques temps réel | ✅ |
+| **Température** | Température cours d'eau | Stations thermométriques | ✅ |
+| **Qualité surface** | Analyses physico-chimiques | Paramètres Sandre, concentrations | ✅ |
+| **Qualité souterraine** | Analyses chimiques nappes | Nitrates, pesticides, DCE | ✅ |
 
-### Sources externes (IntÃ©grÃ©es)
+### Sources externes (Intégrées)
 
-| Source | Description | Type | DonnÃ©es | Status |
+| Source | Description | Type | Données | Status |
 |--------|-------------|------|---------|--------|
-| **Sandre** | Nomenclatures officielles | API REST | ParamÃ¨tres, unitÃ©s, mÃ©thodes | âœ… |
-| **Sandre ThÃ©saurus** | ThÃ©saurus paramÃ¨tres (nouveau) | API REST | Codes paramÃ¨tres, familles, unitÃ©s | âœ… |
-| **BDLISA** | Masses d'eau souterraine | WFS | Polygones, niveaux hiÃ©rarchiques | âœ… |
-| **InfoTerre** | Forages et gÃ©ologie | WFS | Forages BSS, cartes gÃ©ologiques | âœ… |
-| **CarMen** | Chimie agrÃ©gÃ©e | API REST | DonnÃ©es DCE agrÃ©gÃ©es | âœ… |
-| **Ontologies RDF** | SOSA/SSN, GeoSPARQL, QUDT, PROV-O | RDF/Turtle | Vocabulaires sÃ©mantiques | âœ… |
-| **MÃ©tÃ©o (Squelette)** | DonnÃ©es mÃ©tÃ©orologiques | Flexible | PrÃ©cipitations, tempÃ©rature, ETP | ðŸ”„ |
+| **Sandre** | Nomenclatures officielles | API REST | Paramètres, unités, méthodes | ✅ |
+| **BDLISA** | Masses d'eau souterraine | API Hub'Eau | Polygones, niveaux hiérarchiques | ✅ |
+| **Ontologies RDF** | SOSA/SSN, GeoSPARQL, QUDT | RDF/Turtle | Vocabulaires sémantiques | ✅ |
 
-### Sources externes (PrÃ©parÃ©es)
-
-- **MÃ©tÃ©o-France SAFRAN** : Pluie, tempÃ©rature, ETP (nÃ©cessite partenariat)
-- **ERA5-Land** : DonnÃ©es climatiques globales
-- **Sentinel-2** : NDVI, tempÃ©rature de surface
-- **GRACE-FO** : Anomalies masse d'eau
-- **MÃ©tÃ©EAU Nappes** : PrÃ©visions piÃ©zomÃ©triques BRGM
-
-## ðŸ—„ï¸ ModÃ¨le de donnÃ©es
+## 🗄️ Modèle de données
 
 ### TimescaleDB (Chroniques temporelles)
 
 ```sql
--- Table principale des mesures
+-- Table principale des mesures (hypertable)
 measure(
   station_code TEXT,
   theme TEXT,           -- 'piezo', 'hydro', 'temp', 'quality'
   ts TIMESTAMPTZ,
   value DOUBLE PRECISION,
   quality TEXT,
-  source TEXT
+  source TEXT,
+  PRIMARY KEY (station_code, theme, ts)
 )
 
--- MÃ©tadonnÃ©es des stations
+-- Métadonnées des stations avec PostGIS
 station_meta(
   station_code TEXT PRIMARY KEY,
-  label TEXT,
-  type TEXT,
-  geom GEOGRAPHY(POINT, 4326),
-  masse_eau_code TEXT
+  station_name TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  theme TEXT,
+  status TEXT,
+  geom GEOGRAPHY(POINT, 4326)
+)
+
+-- Données de qualité chimique (hypertable)
+measure_quality(
+  station_code TEXT,
+  param_code TEXT,
+  ts TIMESTAMPTZ,
+  value DOUBLE PRECISION,
+  unit TEXT,
+  quality TEXT,
+  source TEXT,
+  PRIMARY KEY (station_code, param_code, ts)
 )
 ```
 
-### Neo4j (Relations mÃ©tier)
+### Neo4j (Relations métier)
 
 ```cypher
-// NÅ“uds principaux
-(:Station {code, label, type, lat, lon})
-(:MasseEau {code, libelle, niveau})
-(:Commune {insee, nom})
-(:Parametre {code, libelle, unite})
+// Nœuds principaux
+(:Station {code, name, latitude, longitude, theme, status})
+(:Commune {code, name, department, region})
+(:Parametre {code, name, unite, theme})
+(:MasseEau {code, name, type})
 
 // Relations
-(:Station)-[:IN_MASSE]->(:MasseEau)
-(:Station)-[:IN_COMMUNE]->(:Commune)
-(:Station)-[:NEAR {distance_km}]->(:Station)
+(:Station)-[:LOCATED_IN]->(:Commune)
+(:Station)-[:MEASURES]->(:Parametre)
+(:Station)-[:CORRELATES_WITH]->(:Station)
 ```
 
-## ðŸ”„ Pipeline Dagster
+### MinIO (Data Lake - Bronze Layer)
+
+```
+hubeau-bronze/
+├── bronze/
+│   └── hubeau/
+│       └── YYYY-MM-DD/
+│           ├── piezo_chroniques_tr_YYYY-MM-DD.json
+│           ├── piezo_stations_YYYY-MM-DD.json
+│           ├── hydro_observations_YYYY-MM-DD.json
+│           └── quality_surface_YYYY-MM-DD.json
+```
+
+## 🔄 Pipeline Dagster
 
 ### Architecture en 3 couches
 
-#### ðŸ¥‰ Bronze Layer (DonnÃ©es brutes)
-- **piezo_raw** : PiÃ©zomÃ©trie Hub'Eau
-- **hydro_raw** : HydromÃ©trie Hub'Eau
-- **temperature_raw** : TempÃ©rature cours d'eau
-- **ecoulement_raw** : Ã‰coulement cours d'eau
-- **hydrobiologie_raw** : Indices biologiques
-- **quality_surface_raw** : QualitÃ© eaux de surface v1
-- **quality_groundwater_raw** : QualitÃ© eaux souterraines v1
-- **quality_raw** : QualitÃ© eaux de surface v2 (nouveau)
-- **quality_groundwater_raw** : QualitÃ© eaux souterraines v2 (nouveau)
-- **prelevements_raw** : PrÃ©lÃ¨vements d'eau
-- **sandre_nomenclatures** : Nomenclatures Sandre
-- **sandre_params_raw** : ThÃ©saurus paramÃ¨tres Sandre (nouveau)
-- **sandre_units_raw** : ThÃ©saurus unitÃ©s Sandre (nouveau)
-- **bdlisa_masses_eau** : Masses d'eau BDLISA
-- **infoterre_forages** : Forages InfoTerre
-- **carmen_chimie** : Chimie agrÃ©gÃ©e CarMen
-- **ontologies_rdf** : Ontologies RDF
-- **meteo_raw** : DonnÃ©es mÃ©tÃ©o (squelette)
+#### 🥉 Bronze Layer (Données brutes)
+- **Stockage MinIO** : Données brutes des APIs avec métadonnées
+- **Format JSON** : Structure originale des APIs Hub'Eau
+- **Métadonnées enrichies** : Version API, compteurs, timestamps
 
-#### ðŸ¥ˆ Silver Layer (DonnÃ©es normalisÃ©es)
-- **piezo_timescale** : Chargement vers TimescaleDB
-- **quality_timescale** : Chargement qualitÃ© v2 vers TimescaleDB (nouveau)
-- **quality_groundwater_timescale** : Chargement qualitÃ© souterraine v2 (nouveau)
-- **stations_metadata** : MÃ©tadonnÃ©es des stations
-- **sandre_params_pg** : ThÃ©saurus paramÃ¨tres â†’ TimescaleDB (nouveau)
-- **sandre_units_pg** : ThÃ©saurus unitÃ©s â†’ TimescaleDB (nouveau)
-- **meteo_timescale** : Chargement mÃ©tÃ©o â†’ TimescaleDB (nouveau)
-- **sandre_to_neo4j** : Synchronisation Sandre â†’ Neo4j
-- **bdlisa_to_neo4j** : Synchronisation BDLISA â†’ Neo4j
+#### 🥈 Silver Layer (Données normalisées)
+- **TimescaleDB** : Données structurées et optimisées
+- **Hypertables** : Partitionnement temporel automatique
+- **PostGIS** : Géométries et requêtes spatiales
 
-#### ðŸ¥‡ Gold Layer (Analyses et relations)
-- **stations_graph** : Construction du graphe Neo4j
-- **all_stations_proximity** : Relations de proximitÃ©
-- **station_correlations** : CorrÃ©lations entre stations
-- **station_river_relations** : Relations nappe-riviÃ¨re
-- **withdrawal_station_relations** : Relations prÃ©lÃ¨vements-stations
-- **watershed_analysis** : Analyses de bassins versants
-- **anthropogenic_impact_analysis** : Impacts anthropiques
-- **data_quality_metadata** : MÃ©tadonnÃ©es de qualitÃ©
-- **graph_params** : NÅ“uds paramÃ¨tres dans Neo4j (nouveau)
-- **graph_station_has_param** : Relations station-paramÃ¨tre (nouveau)
-- **graph_quality_correlations** : CorrÃ©lations paramÃ¨tres qualitÃ© (nouveau)
-- **graph_quality_profiles** : Profils de qualitÃ© par station (nouveau)
-- **station2grid_update** : Liens station-grille mÃ©tÃ©o (nouveau)
-- **meteo_station_summary** : AgrÃ©gats mÃ©tÃ©o par station (nouveau)
+#### 🥇 Gold Layer (Analyses et relations)
+- **Neo4j** : Graphe de relations métier
+- **Corrélations** : Relations entre stations et paramètres
+- **Analyses avancées** : Insights et métriques
 
 ### Planification
 
-| Job | FrÃ©quence | Description |
+| Job | Fréquence | Description |
 |-----|-----------|-------------|
-| **hubeau_daily_job** | Quotidien 02:30 | IntÃ©gration toutes les APIs Hub'Eau |
-| **external_weekly_job** | Hebdomadaire (Lundi 03:00) | Sources externes et analyses avancÃ©es |
-| **full_integration_job** | Mensuel (1er Ã  04:00) | IntÃ©gration complÃ¨te et maintenance |
+| **daily_pipeline_job** | Quotidien 06:00 | Pipeline complet end-to-end |
 
-### Sensors et Checks
+### Flux de données réel
 
-- **Sensors** : DÃ©tection automatique des donnÃ©es manquantes
-- **Asset Checks** : Validation de la qualitÃ© des donnÃ©es
-- **Data Quality** : MÃ©triques de complÃ©tude et cohÃ©rence
+1. **Ingestion** : APIs Hub'Eau → MinIO (Bronze)
+2. **Transformation** : MinIO → TimescaleDB (Silver)
+3. **Analyse** : TimescaleDB → Neo4j (Gold)
+4. **Orchestration** : Dagster coordonne le tout
 
-## ðŸ“ˆ Monitoring
+## 📈 Monitoring
 
-### MÃ©triques disponibles
+### Métriques disponibles
 
-- Nombre de records ingÃ©rÃ©s par source
-- Latence des APIs Hub'Eau
-- Taux de succÃ¨s des jobs Dagster
-- Utilisation des ressources
+- **Data Quality Score** : 94.0/100 (completude, cohérence, fraîcheur, précision)
+- **APIs Hub'Eau** : 23,194 stations, 4.8M mesures piézométriques
+- **Stockage MinIO** : Données brutes avec métadonnées
+- **TimescaleDB** : Données structurées en hypertables
+- **Neo4j** : Graphe de relations construites
 
-### Dashboards Grafana
+### Dashboards disponibles
 
-- Vue d'ensemble du pipeline
-- SantÃ© des bases de donnÃ©es
-- MÃ©triques de performance
-- Alertes sur les erreurs
+- **Dagster UI** : Monitoring des jobs et assets
+- **Grafana** : Métriques système et performance
+- **pgAdmin** : Exploration des données TimescaleDB
+- **Neo4j Browser** : Navigation du graphe
 
-## ðŸ› ï¸ DÃ©veloppement
+## 🛠️ Développement
 
 ### Structure du projet
 
 ```
-â”œâ”€â”€ docker-compose.yml              # Orchestration des services
-â”œâ”€â”€ src/hubeau_pipeline/            # Code Dagster
-â”‚   â”œâ”€â”€ __init__.py                # DÃ©finitions principales
-â”‚   â”œâ”€â”€ assets.py                  # Assets Hub'Eau principaux
-â”‚   â”œâ”€â”€ external_assets.py         # Sources externes et ontologies
-â”‚   â”œâ”€â”€ geospatial_assets.py       # Analyses gÃ©ospatiales
-â”‚   â”œâ”€â”€ assets_station_meta.py     # MÃ©tadonnÃ©es des stations (CRITIQUE)
-â”‚   â””â”€â”€ resources.py               # Connexions aux services
-â”œâ”€â”€ scripts/                        # Scripts d'initialisation
-â”‚   â”œâ”€â”€ init_timescaledb.sql       # SchÃ©ma TimescaleDB complet
-â”‚   â”œâ”€â”€ init_neo4j.cypher          # Contraintes Neo4j
-â”‚   â”œâ”€â”€ init_all.sh               # Script Linux/Mac
-â”‚   â””â”€â”€ init_all.bat              # Script Windows
-â”œâ”€â”€ tests/                          # Tests d'intÃ©gration
-â”‚   â””â”€â”€ test_integration.py        # Validation du pipeline
-â”œâ”€â”€ docs/                          # Documentation
-â”‚   â”œâ”€â”€ examples_queries.md        # RequÃªtes avancÃ©es
-â”‚   â”œâ”€â”€ REVIEW_CORRECTIONS.md      # Revue et corrections
-â”‚   â””â”€â”€ BACKFILL_GUIDE.md          # Guide des backfills
-â””â”€â”€ dagster_home/                  # Configuration Dagster
-    â””â”€â”€ workspace.yaml
+├── docker-compose.yml              # Orchestration des services
+├── src/hubeau_pipeline/            # Code Dagster
+│   ├── __init__.py                # Définitions principales
+│   ├── microservices/             # Architecture microservices
+│   │   ├── ingestion/             # Services d'ingestion
+│   │   ├── transformation/        # Services de transformation
+│   │   ├── analytics/             # Services d'analyse
+│   │   └── orchestrator/          # Orchestrateur
+│   └── resources.py               # Connexions aux services
+├── scripts/                        # Scripts d'initialisation
+│   ├── init_timescaledb.sql       # Schéma TimescaleDB complet
+│   └── init_neo4j.cypher          # Contraintes Neo4j
+├── dagster_home/                  # Configuration Dagster
+│   └── workspace.yaml
+└── requirements.txt               # Dépendances Python
 ```
+
+### Technologies utilisées
+
+- **Dagster 1.7.4** : Orchestration et monitoring
+- **TimescaleDB + PostGIS** : Base de données temporelle et spatiale
+- **Neo4j 5.15** : Base de données graphe
+- **MinIO** : Stockage objet S3-compatible
+- **Redis** : Cache et verrous
+- **Python 3.11** : Langage principal
+- **Docker Compose** : Orchestration des services
 
 ### Ajout d'une nouvelle source
 
-1. CrÃ©er un nouvel asset dans `assets.py`
-2. DÃ©finir les partitions et dÃ©pendances
-3. Ajouter les ressources nÃ©cessaires
-4. Configurer la planification
+1. Créer un nouveau microservice dans `microservices/ingestion/`
+2. Implémenter le stockage MinIO avec `MinIOService`
+3. Ajouter la transformation vers TimescaleDB
+4. Configurer la construction du graphe Neo4j
+5. Intégrer dans l'orchestrateur quotidien
 
-### Tests
-
-```bash
-# Tests d'intÃ©gration
-pytest tests/test_integration.py -v
-
-# Validation complÃ¨te du pipeline
-python -m pytest tests/ --tb=short
-```
-
-## ðŸ”§ Maintenance
+## 🔧 Maintenance
 
 ### Sauvegardes
 
@@ -286,73 +280,71 @@ docker-compose exec timescaledb pg_dump -U postgres water > backup_water.sql
 
 # Neo4j
 docker-compose exec neo4j neo4j-admin dump --database=neo4j --to=/backups/neo4j.dump
+
+# MinIO
+docker-compose exec minio mc mirror local/hubeau-bronze /backups/minio/
 ```
 
 ### Surveillance
 
-- Logs Dagster : Interface web
-- Logs Docker : `docker-compose logs -f [service]`
-- MÃ©triques Prometheus : Port 9090
+- **Logs Dagster** : Interface web http://localhost:3000
+- **Logs Docker** : `docker-compose logs -f [service]`
+- **Métriques** : Grafana http://localhost:3001
 
-## ðŸŽ¯ FonctionnalitÃ©s avancÃ©es
+## 🎯 Fonctionnalités avancées
 
-### Analyses gÃ©ospatiales
-- Relations de proximitÃ© entre stations
-- CorrÃ©lations temporelles
-- Relations hydrologiques (nappe-riviÃ¨re)
-- Analyses de bassins versants
-- Impacts anthropiques
+### Données réelles intégrées
 
-### Analyses de qualitÃ© avancÃ©es (Nouveau)
-- Relations station-paramÃ¨tre dans le graphe
-- CorrÃ©lations entre paramÃ¨tres de qualitÃ©
-- Profils de qualitÃ© par station
-- ThÃ©saurus Sandre intÃ©grÃ©
-- MÃ©tadonnÃ©es enrichies
+- **4.8M mesures piézométriques** temps réel
+- **23,194 stations** avec géolocalisation
+- **APIs Hub'Eau** conformes à la documentation officielle
+- **Stockage MinIO** avec métadonnées enrichies
 
-### DonnÃ©es mÃ©tÃ©o (Squelette)
-- Grille mÃ©tÃ©o normalisÃ©e
-- Liens station-cellule mÃ©tÃ©o
-- AgrÃ©gats mÃ©tÃ©o par station
-- Support pour multiples sources (ERA5, SAFRAN, etc.)
+### Analyses géospatiales
 
-### Monitoring et qualitÃ©
-- Asset checks automatiques
-- Sensors de fraÃ®cheur
-- MÃ©tadonnÃ©es de qualitÃ©
-- Logs dÃ©taillÃ©s
-- Backoff/retry automatique
+- Relations de proximité entre stations
+- Corrélations temporelles
+- Requêtes PostGIS sur TimescaleDB
+- Graphe spatial dans Neo4j
 
-### IntÃ©gration sÃ©mantique
+### Intégration sémantique
+
 - Ontologies RDF (SOSA/SSN, GeoSPARQL, QUDT, PROV-O)
 - Graphe de connaissances Neo4j
 - Relations inter-sources
-- Vocabulaires contrÃ´lÃ©s
-- ThÃ©saurus officiels Sandre
+- Vocabulaires contrôlés Sandre
 
-## ðŸ“š Documentation technique
+### Monitoring et qualité
 
-- [Guide des backfills](docs/BACKFILL_GUIDE.md) - Guide complet pour les backfills
-- [Exemples de requÃªtes](docs/examples_queries.md) - RequÃªtes avancÃ©es
-- [Revue et corrections](docs/REVIEW_CORRECTIONS.md) - DÃ©tails des amÃ©liorations
+- Asset checks automatiques
+- Data Quality Score en temps réel
+- Logs détaillés par microservice
+- Retry automatique sur erreurs API
 
-## ðŸ¤ Contribution
+## 📚 Documentation technique
+
+- **Architecture microservices** : Services Dagster modulaires
+- **APIs Hub'Eau** : Conformité documentation officielle
+- **Stockage MinIO** : Data lake avec métadonnées
+- **TimescaleDB** : Hypertables et PostGIS
+- **Neo4j** : Graphe de relations métier
+
+## 🤝 Contribution
 
 1. Fork le projet
-2. CrÃ©er une branche feature
-3. Commiter les changements
-4. Pousser vers la branche
+2. Créer une branche feature
+3. Implémenter un nouveau microservice
+4. Tester avec les données réelles
 5. Ouvrir une Pull Request
 
-## ðŸ“„ Licence
+## 📄 Licence
 
-Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de dÃ©tails.
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
-## ðŸ™ Remerciements
+## 🙏 Remerciements
 
-- [BRGM](https://www.brgm.fr/) pour les donnÃ©es Hub'Eau
+- [BRGM](https://www.brgm.fr/) pour les données Hub'Eau
 - [Dagster](https://dagster.io/) pour l'orchestration
 - [Neo4j](https://neo4j.com/) pour le graphe
-- [TimescaleDB](https://www.timescale.com/) pour les sÃ©ries temporelles
-
-
+- [TimescaleDB](https://www.timescale.com/) pour les séries temporelles
+- [MinIO](https://min.io/) pour le stockage objet

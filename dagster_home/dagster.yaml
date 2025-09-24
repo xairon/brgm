@@ -1,0 +1,13 @@
+# Configuration Dagster pour Hub'Eau
+# Configuration simple pour le développement
+
+storage:
+  postgres:
+    postgres_db:
+      hostname: dagster_postgres
+      db_name: dagster
+      username: postgres
+      password: BrgmDagster2024!
+
+telemetry:
+  enabled: false

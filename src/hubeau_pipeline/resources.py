@@ -9,7 +9,7 @@ import redis
 import httpx
 from neo4j import GraphDatabase
 from dagster import resource
-from dagster._utils import merge_dicts
+# from dagster._utils import merge_dicts  # Non disponible dans cette version
 from typing import Dict, Any
 
 

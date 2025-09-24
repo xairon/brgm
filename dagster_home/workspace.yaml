@@ -1,2 +1,3 @@
 load_from:
-  - python_package: hubeau_pipeline
+  - python_module:
+      module_name: hubeau_pipeline

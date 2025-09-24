@@ -1,4 +1,4 @@
-﻿version: "3.8"
+﻿# version: "3.8"  # Obsolète, supprimé pour éviter l'avertissement
 
 services:
   dagster_postgres:
@@ -22,21 +22,21 @@ services:
     depends_on:
       - dagster_postgres
     environment:
-      DAGSTER_HOME: /opt/dagster/dagster_home
+      DAGSTER_HOME: /app/dagster_home
       DAGSTER_PG_HOST: dagster_postgres
       DAGSTER_PG_DB: dagster
       DAGSTER_PG_USER: postgres
       DAGSTER_PG_PASSWORD: ${DAGSTER_PG_PASSWORD}
-      PYTHONPATH: /opt/dagster/app/src
+      PYTHONPATH: /app/src
       PG_PASSWORD: ${PG_PASSWORD}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       MINIO_USER: ${MINIO_USER}
       MINIO_PASS: ${MINIO_PASS}
     volumes:
-      - ./dagster_home:/opt/dagster/dagster_home
-      - ./src:/opt/dagster/app
-      - ./scripts:/opt/dagster/scripts:ro
-    command: ["dagster-webserver","-h","0.0.0.0","-p","3000","-w","/opt/dagster/dagster_home/workspace.yaml"]
+      - ./dagster_home:/app/dagster_home
+      - ./src:/app/src
+      - ./scripts:/app/scripts:ro
+    command: ["dagster-webserver","-h","0.0.0.0","-p","3000","-w","/app/dagster_home/workspace.yaml"]
     ports:
       - "3000:3000"
   dagster_daemon:
@@ -45,21 +45,21 @@ services:
       - dagster_postgres
       - dagster_webserver
     environment:
-      DAGSTER_HOME: /opt/dagster/dagster_home
+      DAGSTER_HOME: /app/dagster_home
       DAGSTER_PG_HOST: dagster_postgres
       DAGSTER_PG_DB: dagster
       DAGSTER_PG_USER: postgres
       DAGSTER_PG_PASSWORD: ${DAGSTER_PG_PASSWORD}
-      PYTHONPATH: /opt/dagster/app/src
+      PYTHONPATH: /app/src
       PG_PASSWORD: ${PG_PASSWORD}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       MINIO_USER: ${MINIO_USER}
       MINIO_PASS: ${MINIO_PASS}
     volumes:
-      - ./dagster_home:/opt/dagster/dagster_home
-      - ./src:/opt/dagster/app
-      - ./scripts:/opt/dagster/scripts:ro
-    command: ["dagster-daemon","run"]
+      - ./dagster_home:/app/dagster_home
+      - ./src:/app/src
+      - ./scripts:/app/scripts:ro
+    command: ["dagster-daemon","run","-m","hubeau_pipeline"]
   timescaledb:
     image: timescale/timescaledb-ha:pg16
     environment:
@@ -107,6 +107,17 @@ services:
       - "3001:3000"
     volumes: 
       - grafana_data:/var/lib/grafana
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@brgm.fr
+      PGADMIN_DEFAULT_PASSWORD: BrgmPgAdmin2024!
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    depends_on:
+      - timescaledb
 
 volumes:
   dagster_pg: {}
