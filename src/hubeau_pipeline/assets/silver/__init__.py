@@ -1,16 +1,16 @@
 """
-Assets Silver - Données nettoyées et structurées
-Petites briques spécialisées pour le nettoyage et la structuration
+Assets Silver - Transformation optimisée vers bases de données cibles
 """
 
-from .timescale_loader import piezo_timescale, hydro_timescale, quality_timescale
-from .station_metadata import station_metadata_sync
-from .data_quality import data_quality_checks
+from .timescale_optimized import piezo_timescale_optimized, quality_timescale_optimized
+from .postgis_neo4j import bdlisa_postgis_silver, sandre_neo4j_silver
 
 __all__ = [
-    "piezo_timescale",
-    "hydro_timescale", 
-    "quality_timescale",
-    "station_metadata_sync",
-    "data_quality_checks"
+    # TimescaleDB optimisé
+    "piezo_timescale_optimized",
+    "quality_timescale_optimized",
+    
+    # PostGIS et Neo4j
+    "bdlisa_postgis_silver",
+    "sandre_neo4j_silver"
 ]

@@ -1,22 +1,25 @@
 """
-Assets Bronze - Données brutes depuis les APIs
-Petites briques spécialisées par source de données
+Assets Bronze - Ingestion optimisée des données brutes
 """
 
-from .hubeau_piezo import piezo_raw
-from .hubeau_hydro import hydro_raw
-from .hubeau_quality import quality_surface_raw, quality_groundwater_raw
-from .hubeau_meteo import meteo_raw
-from .external_sandre import sandre_params_raw, sandre_units_raw
-from .external_bdlisa import bdlisa_masses_eau_raw
+from .hubeau_ingestion import (
+    hubeau_piezo_bronze,
+    hubeau_hydro_bronze,
+    hubeau_quality_surface_bronze,
+    hubeau_quality_groundwater_bronze,
+    hubeau_temperature_bronze
+)
+from .external_data import bdlisa_geographic_bronze, sandre_thesaurus_bronze
 
 __all__ = [
-    "piezo_raw",
-    "hydro_raw", 
-    "quality_surface_raw",
-    "quality_groundwater_raw",
-    "meteo_raw",
-    "sandre_params_raw",
-    "sandre_units_raw",
-    "bdlisa_masses_eau_raw"
+    # Hub'Eau APIs
+    "hubeau_piezo_bronze",
+    "hubeau_hydro_bronze",
+    "hubeau_quality_surface_bronze",
+    "hubeau_quality_groundwater_bronze",
+    "hubeau_temperature_bronze",
+    
+    # Données externes
+    "bdlisa_geographic_bronze",
+    "sandre_thesaurus_bronze"
 ]

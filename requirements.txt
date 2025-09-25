@@ -2,8 +2,8 @@
 # Dépendances Python pour Dagster - Version complète
 
 # Core Dagster
-dagster==1.8.7
-dagster-webserver==1.8.7
+dagster==1.8.8
+dagster-webserver==1.8.8
 dagster-postgres==0.24.8
 
 # Base de données

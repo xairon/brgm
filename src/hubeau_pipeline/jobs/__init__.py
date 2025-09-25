@@ -1,15 +1,33 @@
 """
-Jobs Orchestrés - Grosses briques
-Orchestration des petites briques en workflows cohérents
+Jobs Dagster - Organisation optimisée par fonction métier
 """
 
-from .daily_ingestion import hubeau_daily_job
-from .weekly_external import sandre_weekly_job, bdlisa_monthly_job
-from .monthly_analytics import analytics_monthly_job
+from .ingestion import (
+    hubeau_production_job, 
+    bdlisa_production_job, 
+    sandre_production_job,
+    demo_showcase_job
+)
+from .analytics import analytics_production_job
+
+# Jobs de production (données réelles)
+production_jobs = [
+    hubeau_production_job,
+    bdlisa_production_job,
+    sandre_production_job, 
+    analytics_production_job
+]
+
+# Jobs de démonstration
+demo_jobs = [
+    demo_showcase_job
+]
+
+# Tous les jobs
+all_jobs = production_jobs + demo_jobs
 
 __all__ = [
-    "hubeau_daily_job",
-    "sandre_weekly_job",
-    "bdlisa_monthly_job", 
-    "analytics_monthly_job"
+    "all_jobs",
+    "production_jobs",
+    "demo_jobs"
 ]

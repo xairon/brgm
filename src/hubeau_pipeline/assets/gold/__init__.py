@@ -1,16 +1,16 @@
 """
-Assets Gold - Analyses et relations
-Petites briques spécialisées pour les analyses avancées
+Assets Gold - Analyses et ontologie
 """
 
-from .neo4j_graph import stations_graph, correlations_graph
-from .analytics import station_analytics, quality_analytics
-from .geospatial import proximity_relations
+from .production_analytics import sosa_ontology_production, integrated_analytics_production
+from .demo_showcase import demo_quality_scores, demo_neo4j_showcase
 
 __all__ = [
-    "stations_graph",
-    "correlations_graph",
-    "station_analytics", 
-    "quality_analytics",
-    "proximity_relations"
+    # Production - Calculs réels
+    "sosa_ontology_production",
+    "integrated_analytics_production",
+    
+    # Démonstration - Simulations
+    "demo_quality_scores", 
+    "demo_neo4j_showcase"
 ]
